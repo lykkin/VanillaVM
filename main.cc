@@ -8,8 +8,8 @@
 #include <cctype>
 #include <thread>
 
-#include "actor.h"
-#include "instruction.h"
+#include "include/actor.h"
+#include "include/instruction.h"
 
 using namespace std;
 
@@ -82,24 +82,31 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    map<pair<int, int>, vector<actor>> occupancy_graph;
-    vector<actor> actors;
+    map<pair<int, int>, vector<actor*>> occupancy_graph;
+    vector<actor*> actors;
 
     for (int i = 1; i < argc; i++) {
         fstream input(argv[i]);
+
+        if (!input.is_open()) {
+            cout << "FIRE DOESN'T EXIST: " << argv[i] << endl;
+            return 1;
+        }
+
+        // Instruction parser
         string line;
         regex parser("(\\S+)");
         smatch results;
 
-        actor curr_actor(i);
+        actor* curr_actor = new actor(i);
 
         while (getline(input, line)) {
             auto words_begin = sregex_iterator(line.begin(), line.end(), parser);
             auto words_end = sregex_iterator();
 
+            // Pull out the movement direction
             pair<int, int> dir;
             auto direction_word = words_begin->str();
-            words_begin++;
 
             if (direction_word == "up") {
                 dir = {0, 1};
@@ -111,34 +118,50 @@ int main(int argc, char** argv) {
                 dir = {1, 0};
             } else {
                 cout << direction_word << " IS NOT A VALID DIRECTION" << endl;
-                return 0;
+                return 1;
             }
 
-            string ins_name = words_begin->str();
-            function<void(actor&, vector<string>)> fn = instruction_map[ins_name];
             words_begin++;
 
+            // Pull out the instruction name
+            string ins_name = words_begin->str();
+            function<void(actor&, vector<string>)> fn = instruction_map[ins_name];
+
+            if (!fn) {
+                cout << ins_name << " IS NOT A VALID INSTRUCTION" << endl;
+                return 1;
+            }
+
+            words_begin++;
+
+            // Pull out the arguments
             vector<string> args;
             for (sregex_iterator i = words_begin; i != words_end; ++i) {
                 args.push_back(i->str());
             }
 
-            curr_actor.add_instruction(dir, fn, args, ins_name);
+            // Register the instruction with the actor associated with
+            // the file.
+            curr_actor->add_instruction(dir, fn, args, ins_name);
         }
 
+        // Keep track of the constructed actor.
         actors.push_back(curr_actor);
     }
 
     while (true) {
         // Move the actors and mark their cells they are in
-        for (actor curr_actor : actors) {
-            curr_actor.move();
-            auto cell_actors = &occupancy_graph[curr_actor.get_coords()];
+        for (actor* curr_actor : actors) {
+            curr_actor->move();
+            auto cell_actors = &occupancy_graph[curr_actor->get_coords()];
             cell_actors->push_back(curr_actor);
         }
 
 
-        vector<pair<vector<actor>::iterator, vector<actor>::iterator>> actor_iters;
+        // Build up a list of actor iterators used to execute the actor
+        // instructions in parallel, resolving conflicts over a cell in
+        // the order an actor is created.
+        vector<pair<vector<actor*>::iterator, vector<actor*>::iterator>> actor_iters;
         for (auto i = occupancy_graph.begin(); i != occupancy_graph.end(); i++) {
             actor_iters.push_back({i->second.begin(), i->second.end()});
         }
@@ -152,12 +175,15 @@ int main(int argc, char** argv) {
         while (!done) {
             done = true;
 
+            // Iterate through the actor iterators, and execute them if
+            // any are pending.
             for (int i = 0; i < actor_iters.size(); i++) { 
                 auto curr_actor_iter_pair = actor_iters[i];
                 if (curr_actor_iter_pair.first != curr_actor_iter_pair.second) {
                     done = false;
-                    actor_threads.emplace_back([&](){
-                        curr_actor_iter_pair.first->print();
+                    actor_threads.emplace_back([&, i](){
+                        (*curr_actor_iter_pair.first)->execute();
+                        (*curr_actor_iter_pair.first)->print();
                     });
                     actor_iters[i].first++;
                 }

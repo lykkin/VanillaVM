@@ -22,6 +22,8 @@ class actor {
     vector<instruction> instructions;
     int curr_ins;
 public:
+    actor(const actor& old) = delete;
+
     actor(int id,  int x = 0, int y = 0) : id(id), x(x), y(y)
     {curr_ins = 0;}
 
