@@ -12,6 +12,7 @@
 
 #include "include/actor.h"
 #include "include/task.h"
+#include "include/task_pool.h"
 #include "include/instruction.h"
 
 int task::id_counter = 0;
@@ -46,13 +47,6 @@ map<string, instruction_fn> instruction_map {
         "select", [](actor& ins_actor, vector<string> args) {
             auto context = memory[ins_actor.get_coords()];
             ins_actor.getContext()[args[0]] = context[args[0]];
-        }
-    },
-
-    {
-        "write", [](actor& ins_actor, vector<string> args) {
-            auto context = memory[ins_actor.get_coords()];
-            context[args[0]] = ins_actor.getContext()[args[0]];
         }
     },
 
@@ -154,37 +148,39 @@ int main(int argc, char** argv) {
         actors.push_back(curr_actor);
     }
 
-    list<vector<task*>> actor_queue;
+    list<vector<task*>> job_queue;
     vector<thread> workers;
 
     condition_variable worker_cv;
-    mutex worker_mutex;
+    mutex job_queue_mutex;
 
     for (int i = 0; i < 1; i++) {
         workers.emplace_back([&](){
-            unique_lock<mutex> lock(worker_mutex, defer_lock);
+            unique_lock<mutex> queue_lock(job_queue_mutex, defer_lock);
             while (true) {
                 // Wait for work
-                cout << "WORKER: WAITING" << endl;
-                lock.lock();
-                worker_cv.wait(lock, [&](){
-                    return !actor_queue.empty();
+                queue_lock.lock();
+                worker_cv.wait(queue_lock, [&](){
+                    cout << "WORKER: WAITING " << job_queue.size() << endl;
+                    return !job_queue.empty();
                 });
                 cout << "WORKER: STARTING" << endl; 
                 // Take a job and unlock the queue
-                auto worker_actors = actor_queue.front(); 
-                actor_queue.pop_front();
-                lock.unlock();
+                auto worker_tasks = job_queue.front(); 
+                job_queue.pop_front();
+                cout << "AFTER " << job_queue.size() << endl;
+                queue_lock.unlock();
 
-                for (task* worker_actor : worker_actors) {
-                    worker_actor->execute();
-                    worker_actor->mark_as_done();
+                for (task* curr_task : worker_tasks) {
+                    cout << "WORKER: EXECUTING " << curr_task->id << endl;
+                    curr_task->execute();
+                    cout << "WORKER: EXECUTED " << curr_task->id << endl;
                 }
             }
         });
     }
 
-    unique_lock<mutex> queue_lock(worker_mutex, defer_lock);
+    unique_lock<mutex> queue_lock(job_queue_mutex, defer_lock);
     vector<task*> tick_tasks;
     while (true) {
         // Move the actors and mark their cells they land in.
@@ -198,14 +194,14 @@ int main(int argc, char** argv) {
 
         queue_lock.lock();
         for (auto i = occupancy_graph.begin(); i != occupancy_graph.end(); ++i) {
-            actor_queue.push_back(i->second);
+            job_queue.push_back(i->second);
         }
         cout << "MAIN: NOTIFY" << endl;
         worker_cv.notify_all();
         queue_lock.unlock();
 
         for (task* tick_task : tick_tasks) {
-            cout << "DONE " << endl;
+            cout << "DONE " << tick_task->id << endl;
             tick_task->wait();
             cout << "DELETE " << tick_task->id << endl;
             delete tick_task;
@@ -214,7 +210,7 @@ int main(int argc, char** argv) {
         occupancy_graph.clear();
         tick_tasks.clear();
 
-        cout << "MAIN: WAITING" << endl;
+        cout << "MAIN: END" << endl;
     }
 
     return 0;

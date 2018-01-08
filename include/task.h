@@ -15,23 +15,28 @@ class task {
 public:
     int id;
 
-    task(actor* act) : handle(act), id(id_counter++)
-    {}
+    task(actor* act) : handle(act), id(id_counter++) {
+        cout << "MAKING " << id << endl;
+    }
+
+    ~task() {
+        cout << "DELETING " << id << endl;
+    }
 
     void wait() {
+        cout << "WAITING " << id << endl;
         unique_lock<mutex> lock(_m);
         _cv.wait(lock, [&](){
             return done;
         });
     }
 
-    void mark_as_done() {
+    void execute() {
+        cout << "EXE " << id << endl;
+        handle->execute();
+
         done = true;
         unique_lock<mutex> lock(_m);
         _cv.notify_one();
-    }
-
-    void execute() {
-        handle->execute();
     }
 };
