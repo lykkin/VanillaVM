@@ -11,7 +11,10 @@
 #include <thread>
 
 #include "include/actor.h"
+#include "include/task.h"
 #include "include/instruction.h"
+
+int task::id_counter = 0;
 
 using namespace std;
 
@@ -84,7 +87,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    map<pair<int, int>, vector<actor*>> occupancy_graph;
+    map<pair<int, int>, vector<task*>> occupancy_graph;
     vector<actor*> actors;
 
     for (int i = 1; i < argc; i++) {
@@ -151,22 +154,67 @@ int main(int argc, char** argv) {
         actors.push_back(curr_actor);
     }
 
+    list<vector<task*>> actor_queue;
+    vector<thread> workers;
+
+    condition_variable worker_cv;
+    mutex worker_mutex;
+
+    for (int i = 0; i < 1; i++) {
+        workers.emplace_back([&](){
+            unique_lock<mutex> lock(worker_mutex, defer_lock);
+            while (true) {
+                // Wait for work
+                cout << "WORKER: WAITING" << endl;
+                lock.lock();
+                worker_cv.wait(lock, [&](){
+                    return !actor_queue.empty();
+                });
+                cout << "WORKER: STARTING" << endl; 
+                // Take a job and unlock the queue
+                auto worker_actors = actor_queue.front(); 
+                actor_queue.pop_front();
+                lock.unlock();
+
+                for (task* worker_actor : worker_actors) {
+                    worker_actor->execute();
+                    worker_actor->mark_as_done();
+                }
+            }
+        });
+    }
+
+    unique_lock<mutex> queue_lock(worker_mutex, defer_lock);
+    vector<task*> tick_tasks;
     while (true) {
         // Move the actors and mark their cells they land in.
         for (actor* curr_actor : actors) {
             curr_actor->move();
             auto cell_actors = &occupancy_graph[curr_actor->get_coords()];
-            cell_actors->push_back(curr_actor);
+            task* new_task = new task(curr_actor);
+            tick_tasks.push_back(new_task);
+            cell_actors->push_back(new_task);
         }
 
-        for (auto cell_actor_pair = occupancy_graph.begin(); cell_actor_pair != occupancy_graph.end(); ++cell_actor_pair) {
-            for (actor* cell_actor : cell_actor_pair->second) {
-                cell_actor->execute();
-                cell_actor->print();
-            }
+        queue_lock.lock();
+        for (auto i = occupancy_graph.begin(); i != occupancy_graph.end(); ++i) {
+            actor_queue.push_back(i->second);
+        }
+        cout << "MAIN: NOTIFY" << endl;
+        worker_cv.notify_all();
+        queue_lock.unlock();
+
+        for (task* tick_task : tick_tasks) {
+            cout << "DONE " << endl;
+            tick_task->wait();
+            cout << "DELETE " << tick_task->id << endl;
+            delete tick_task;
         }
 
         occupancy_graph.clear();
+        tick_tasks.clear();
+
+        cout << "MAIN: WAITING" << endl;
     }
 
     return 0;
