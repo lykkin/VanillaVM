@@ -1,11 +1,13 @@
 #include <iostream>
 #include <vector>
 #include <regex>
+#include <list>
 #include <map>
+#include <condition_variable>
 #include <string>
 #include <utility>
+#include <mutex>
 #include <fstream>
-#include <cctype>
 #include <thread>
 
 #include "include/actor.h"
@@ -150,50 +152,18 @@ int main(int argc, char** argv) {
     }
 
     while (true) {
-        // Move the actors and mark their cells they are in
+        // Move the actors and mark their cells they land in.
         for (actor* curr_actor : actors) {
             curr_actor->move();
             auto cell_actors = &occupancy_graph[curr_actor->get_coords()];
             cell_actors->push_back(curr_actor);
         }
 
-
-        // Build up a list of actor iterators used to execute the actor
-        // instructions in parallel, resolving conflicts over a cell in
-        // the order an actor is created.
-        vector<pair<vector<actor*>::iterator, vector<actor*>::iterator>> actor_iters;
-        for (auto i = occupancy_graph.begin(); i != occupancy_graph.end(); i++) {
-            actor_iters.push_back({i->second.begin(), i->second.end()});
-        }
-
-        // Iterate through the cell actor iterators till they are all
-        // done executing.  Each cell should have a thread associated
-        // with it that executes each of its actors instructions in
-        // order that the actors appear in the actor vector.
-        bool done = false;
-        vector<thread> actor_threads;
-        while (!done) {
-            done = true;
-
-            // Iterate through the actor iterators, and execute them if
-            // any are pending.
-            for (int i = 0; i < actor_iters.size(); i++) { 
-                auto curr_actor_iter_pair = actor_iters[i];
-                if (curr_actor_iter_pair.first != curr_actor_iter_pair.second) {
-                    done = false;
-                    actor_threads.emplace_back([&, i](){
-                        (*curr_actor_iter_pair.first)->execute();
-                        (*curr_actor_iter_pair.first)->print();
-                    });
-                    actor_iters[i].first++;
-                }
+        for (auto cell_actor_pair = occupancy_graph.begin(); cell_actor_pair != occupancy_graph.end(); ++cell_actor_pair) {
+            for (actor* cell_actor : cell_actor_pair->second) {
+                cell_actor->execute();
+                cell_actor->print();
             }
-
-            for (int i = 0; i < actor_threads.size(); i++) {
-                actor_threads[i].join();
-            }
-
-            actor_threads.clear();
         }
 
         occupancy_graph.clear();

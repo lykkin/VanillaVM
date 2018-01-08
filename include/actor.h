@@ -39,10 +39,11 @@ public:
     }
 
     void move() {
-        cout << "MOVING: " << id << endl;
         auto ins = instructions[curr_ins];
         x += ins.getXDelta();
         y += ins.getYDelta();
+        cout << "MOVING: " << id << ": " << ins.getXDelta() << ", " << ins.getYDelta() << endl;
+        cout << "HERE: " << id << ": " << x << ", " << y << endl;
     }
 
     map<string, int> getContext() {
