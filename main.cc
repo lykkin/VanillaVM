@@ -14,12 +14,15 @@
 #include "include/task.h"
 #include "include/task_pool.h"
 #include "include/instruction.h"
+#include "include/syncer.h"
 
 int task::id_counter = 0;
 
 using namespace std;
 
 map<pair<int, int>, map<string, int>> memory;
+map<pair<string, int>, syncer> sync_map;
+vector<actor*> actors;
 
 /* TEMPLATE
  * {
@@ -70,7 +73,9 @@ map<string, instruction_fn> instruction_map {
 
     {
         "sync", [](actor& ins_actor, vector<string> args) {
-            // TODO: notify actor to pause
+            //int num_to_sync = args.size() == 1 ? stoi(args[1]) : actors.size();
+            //pair<string, int> sync_key = {args[0], num_to_sync};
+            //sync_map[sync_key].sync(&ins_actor);
         }
     },
 };
@@ -82,7 +87,6 @@ int main(int argc, char** argv) {
     }
 
     map<pair<int, int>, vector<task*>> occupancy_graph;
-    vector<actor*> actors;
 
     for (int i = 1; i < argc; i++) {
         fstream input(argv[i]);
@@ -185,11 +189,13 @@ int main(int argc, char** argv) {
     while (true) {
         // Move the actors and mark their cells they land in.
         for (actor* curr_actor : actors) {
-            curr_actor->move();
-            auto cell_actors = &occupancy_graph[curr_actor->get_coords()];
-            task* new_task = new task(curr_actor);
-            tick_tasks.push_back(new_task);
-            cell_actors->push_back(new_task);
+            if (curr_actor->is_paused()) {
+                curr_actor->move();
+                auto cell_actors = &occupancy_graph[curr_actor->get_coords()];
+                task* new_task = new task(curr_actor);
+                tick_tasks.push_back(new_task);
+                cell_actors->push_back(new_task);
+            }
         }
 
         queue_lock.lock();

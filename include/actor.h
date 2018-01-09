@@ -16,6 +16,8 @@ class actor {
     int x;
     int y;
 
+    bool paused = false;
+
     map<string, int> context;
 
     // instruction vars
@@ -32,6 +34,18 @@ public:
 
     pair<int, int> get_coords() {
         return {x, y};
+    }
+
+    bool is_paused() {
+        return paused;
+    }
+
+    void pause() {
+        paused = true;
+    }
+
+    void unpause() {
+        paused = false;
     }
 
     void add_instruction(pair<int, int> direction, instruction_fn fn, vector<string> args, string name) {
