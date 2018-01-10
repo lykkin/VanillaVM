@@ -1,2 +1,4 @@
+vanillavm
+*.sw[op]
 *.o
 *.out*
