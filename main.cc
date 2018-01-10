@@ -73,9 +73,16 @@ map<string, instruction_fn> instruction_map {
 
     {
         "sync", [](actor& ins_actor, vector<string> args) {
-            //int num_to_sync = args.size() == 1 ? stoi(args[1]) : actors.size();
-            //pair<string, int> sync_key = {args[0], num_to_sync};
-            //sync_map[sync_key].sync(&ins_actor);
+            int num_to_sync = args.size() == 1 ? stoi(args[1]) : actors.size();
+            pair<string, int> sync_key = {args[0], num_to_sync};
+            auto map_iter = sync_map.find(sync_key);
+            if (map_iter == sync_map.end()) {
+                syncer s(num_to_sync);
+                s.sync(&ins_actor);
+                sync_map.emplace(sync_key, s);
+            } else {
+                map_iter->second.sync(&ins_actor);
+            }
         }
     },
 };
@@ -189,7 +196,7 @@ int main(int argc, char** argv) {
     while (true) {
         // Move the actors and mark their cells they land in.
         for (actor* curr_actor : actors) {
-            if (curr_actor->is_paused()) {
+            if (!curr_actor->is_paused()) {
                 curr_actor->move();
                 auto cell_actors = &occupancy_graph[curr_actor->get_coords()];
                 task* new_task = new task(curr_actor);
