@@ -1,0 +1,44 @@
+ITT: a short list of goals for posterity
+i may want to come back to work on some of these
+
+(subsections are in no particular order)
+
+FOR SURE:
+
+abstract executor into its own class with the option for different threaded models
+
+break all the functionality for the different classes into their own cpp files to cut down on compile time
+
+figure out why the task pool is smashing the stack
+
+hunt down the weird task reusing bug
+
+WRITE TESTS
+
+break the parser out into its own file
+
+allow "run once" instructions to set up an actor before it start executing
+
+write a grid set up language parser
+
+write a sudoku solver
+
+add debug and diagnostics flags (at compile time? runtime flags?)
+
+
+MAYBES:
+
+allow for multiple dynamos, defined as a memory grid and set of actors
+
+allow for pre-compiled binaries to avoid having to reparse an input file
+
+allow actors to jump more than one space at a time (e.g. replace movement with an optional coordinate pair per line)
+
+figure out how to allow users to extend the runtime, probably through bonders that can be named and fired using positional arguments (pretty much a janky function)
+
+
+LONG TERM:
+
+network/fs support
+
+optimize/nodeps depending on how poor my judgement is
