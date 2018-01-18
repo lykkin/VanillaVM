@@ -32,13 +32,13 @@ vector<actor*> actors;
  * }
  */
 
-pair<string, instruction_producer> create_instruction_producer(string name, function<bool(vector<string>)> verifier, string fail_message, instruction_fn ins_fn) {
+pair<string, instruction_producer> create_instruction_producer(string name, instruction_verifier verifier, string fail_message, instruction_fn ins_fn) {
     return {
         name,
         [=](actor& ins_actor, vector<string> args, pair<int, int> direction){
-            if (!verifier(args)) {
+            if (!verifier(ins_actor, args)) {
                 // is there a more graceful way to handle this?
-                throw loading_error(fail_message);
+                throw loading_error(name + " " + fail_message);
             }
 
             return instruction(direction, ins_fn, args, name);
@@ -49,10 +49,10 @@ pair<string, instruction_producer> create_instruction_producer(string name, func
 map<string, instruction_producer> instruction_map {
     create_instruction_producer(
         "drop",
-        [](vector<string> args) {
+        [](actor& ins_actor, vector<string> args) {
             return args.size() == 0;
         },
-        "drop TAKES NO ARGUMENTS",
+        "TAKES NO ARGUMENTS",
         [](actor& ins_actor, vector<string> args){
             memory[ins_actor.get_coords()] = ins_actor.get_context();
             ins_actor.get_context().clear();
@@ -60,10 +60,10 @@ map<string, instruction_producer> instruction_map {
     ),
     create_instruction_producer(
         "grab",
-        [](vector<string> args) {
+        [](actor& ins_actor, vector<string> args) {
             return args.size() == 0;
         },
-        "grab TAKES NO ARGUMENTS",
+        "TAKES NO ARGUMENTS",
         [](actor& ins_actor, vector<string> args){
             ins_actor.set_context(memory[ins_actor.get_coords()]);
             memory[ins_actor.get_coords()]; 
@@ -71,10 +71,10 @@ map<string, instruction_producer> instruction_map {
     ),
     create_instruction_producer(
         "select",
-        [](vector<string> args) {
+        [](actor& ins_actor, vector<string> args) {
             return args.size() == 1;
         },
-        "grab TAKES ONE ARGUMENT",
+        "TAKES ONE ARGUMENT",
         [](actor& ins_actor, vector<string> args){
             auto context = memory[ins_actor.get_coords()];
             ins_actor.get_context()[args[0]] = context[args[0]];
@@ -82,10 +82,10 @@ map<string, instruction_producer> instruction_map {
     ),
     create_instruction_producer(
         "write",
-        [](vector<string> args) {
+        [](actor& ins_actor, vector<string> args) {
             return args.size() == 1;
         },
-        "write TAKES ONE ARGUMENT",
+        "TAKES ONE ARGUMENT",
         [](actor& ins_actor, vector<string> args){
             auto context = memory[ins_actor.get_coords()];
             context[args[0]] = ins_actor.get_context()[args[0]];
@@ -93,30 +93,40 @@ map<string, instruction_producer> instruction_map {
     ),
     create_instruction_producer(
         "print",
-        [](vector<string> args) {
+        [](actor& ins_actor, vector<string> args) {
             return args.size() == 0;
         },
-        "print TAKES NO ARGUMENTS",
+        "TAKES NO ARGUMENTS",
         [](actor& ins_actor, vector<string> args){
             ins_actor.print();
         }
     ),
     create_instruction_producer(
         "noop",
-        [](vector<string> args) {
+        [](actor& ins_actor, vector<string> args) {
             return args.size() == 0;
         },
-        "noop TAKES NO ARGUMENTS",
+        "TAKES NO ARGUMENTS",
         [](actor& ins_actor, vector<string> args){
         }
     ),
     create_instruction_producer(
+        "jump",
+        [](actor& ins_actor, vector<string> args) {
+            return args.size() == 1 && ins_actor.has_label(args[0]);
+        },
+        "TAKES ONE ARGUMENT AND A LABEL DEFINED BEFORE THE JUMP STATEMENT",
+        [](actor& ins_actor, vector<string> args){
+            ins_actor.jump(args[0]);
+        }
+    ),
+    create_instruction_producer(
         "sync",
-        [](vector<string> args) {
+        [](actor& ins_actor, vector<string> args) {
             auto size = args.size();
             return size == 1 || size == 2;
         },
-        "sync TAKES ONE OR TWO ARGUMENTS",
+        "TAKES ONE OR TWO ARGUMENTS",
         [](actor& ins_actor, vector<string> args){
             int num_to_sync = args.size() == 1 ? stoi(args[1]) : actors.size();
             pair<string, int> sync_key = {args[0], num_to_sync};
@@ -164,9 +174,20 @@ int main(int argc, char** argv) {
             auto words_begin = sregex_iterator(line.begin(), line.end(), parser);
             auto words_end = sregex_iterator();
 
+            string possible_label = words_begin->str();
+            bool labeled = false;
+            string direction_word;
+            if (possible_label[possible_label.length() - 1] == ':') {
+                possible_label = possible_label.substr(0, possible_label.length() - 1);
+                labeled = true;
+                ++words_begin;
+                direction_word = words_begin->str();
+            } else {
+                direction_word = possible_label;
+            }
+
             // Pull out the movement direction
             pair<int, int> dir;
-            auto direction_word = words_begin->str();
 
             if (direction_word == "up") {
                 dir = {0, 1};
@@ -181,9 +202,8 @@ int main(int argc, char** argv) {
                 return 1;
             }
 
-            words_begin++;
-
             // Pull out the instruction name
+            ++words_begin;
             string ins_name = words_begin->str();
             instruction_producer producer = instruction_map[ins_name];
 
@@ -192,9 +212,8 @@ int main(int argc, char** argv) {
                 return 1;
             }
 
-            words_begin++;
-
             // Pull out the arguments
+            ++words_begin;
             vector<string> args;
             for (sregex_iterator i = words_begin; i != words_end; ++i) {
                 args.push_back(i->str());
@@ -205,6 +224,9 @@ int main(int argc, char** argv) {
             try {
                 instruction curr_ins = producer(*curr_actor, args, dir);
                 curr_actor->add_instruction(curr_ins);
+                if (labeled) {
+                    curr_actor->label_last_instruction(possible_label);
+                }
             } catch (loading_error e) {
                 cout << "FAILED WHILE LOADING INSTRUCTION (" << curr_actor->get_name() << " line " << line_number << "): " << e.get_message() << endl;
                 return 1;

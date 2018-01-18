@@ -22,6 +22,7 @@ class actor {
     bool paused = false;
 
     map<string, int> context;
+    map<string, int> labels;
 
     // instruction vars
     vector<instruction> instructions;
@@ -65,6 +66,18 @@ public:
 
     void add_instruction(instruction ins) {
         instructions.push_back(ins);
+    }
+
+    void label_last_instruction(string label) {
+        labels[label] = instructions.size() - 1;
+    }
+
+    void jump(string label) {
+        curr_ins = labels[label];
+    }
+
+    bool has_label(string label) {
+        return labels.find(label) != labels.end();
     }
 
     void move() {
