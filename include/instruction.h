@@ -10,27 +10,31 @@
 using namespace std;
 
 class instruction {
+    string name;
+    vector<string> args;
     pair<int, int> direction;
     instruction_fn fn;
-    vector<string> args;
-    string name;
 public:
     instruction(pair<int, int> direction, instruction_fn fn, vector<string> args, string name):
-        direction(direction),
-        fn(fn),
+        name(name),
         args(args),
-        name(name)
+        direction(direction),
+        fn(fn)
     {}
 
     void execute(actor& ins_actor) {
         fn(ins_actor, args);
     }
 
-    int getXDelta() {
+    int get_x_delta() {
         return direction.first;
     }
 
-    int getYDelta() {
+    string get_name() {
+        return name;
+    }
+
+    int get_y_delta() {
         return direction.second;
     }
 

@@ -11,6 +11,7 @@
 #include <thread>
 
 #include "include/actor.h"
+#include "include/error.h"
 #include "include/task.h"
 #include "include/task_pool.h"
 #include "include/instruction.h"
@@ -31,48 +32,92 @@ vector<actor*> actors;
  * }
  */
 
-map<string, instruction_fn> instruction_map {
-    {
-        "drop", [](actor& ins_actor, vector<string> args){
+pair<string, instruction_producer> create_instruction_producer(string name, function<bool(vector<string>)> verifier, string fail_message, instruction_fn ins_fn) {
+    return {
+        name,
+        [=](actor& ins_actor, vector<string> args, pair<int, int> direction){
+            if (!verifier(args)) {
+                // is there a more graceful way to handle this?
+                throw loading_error(fail_message);
+            }
+
+            return instruction(direction, ins_fn, args, name);
+        }
+    };
+}
+
+map<string, instruction_producer> instruction_map {
+    create_instruction_producer(
+        "drop",
+        [](vector<string> args) {
+            return args.size() == 0;
+        },
+        "drop TAKES NO ARGUMENTS",
+        [](actor& ins_actor, vector<string> args){
             memory[ins_actor.get_coords()] = ins_actor.getContext();
             ins_actor.getContext().clear();
         }
-    },
-
-    {
-        "grab", [](actor& ins_actor, vector<string> args) {
+    ),
+    create_instruction_producer(
+        "grab",
+        [](vector<string> args) {
+            return args.size() == 0;
+        },
+        "grab TAKES NO ARGUMENTS",
+        [](actor& ins_actor, vector<string> args){
             ins_actor.setContext(memory[ins_actor.get_coords()]);
             memory[ins_actor.get_coords()]; 
         }
-    },
-
-    {
-        "select", [](actor& ins_actor, vector<string> args) {
+    ),
+    create_instruction_producer(
+        "select",
+        [](vector<string> args) {
+            return args.size() == 1;
+        },
+        "grab TAKES ONE ARGUMENT",
+        [](actor& ins_actor, vector<string> args){
             auto context = memory[ins_actor.get_coords()];
             ins_actor.getContext()[args[0]] = context[args[0]];
         }
-    },
-
-    {
-        "write", [](actor& ins_actor, vector<string> args) {
+    ),
+    create_instruction_producer(
+        "write",
+        [](vector<string> args) {
+            return args.size() == 1;
+        },
+        "write TAKES ONE ARGUMENT",
+        [](actor& ins_actor, vector<string> args){
             auto context = memory[ins_actor.get_coords()];
             context[args[0]] = ins_actor.getContext()[args[0]];
         }
-    },
-
-    {
-        "print", [](actor& ins_actor, vector<string> args) {
+    ),
+    create_instruction_producer(
+        "print",
+        [](vector<string> args) {
+            return args.size() == 0;
+        },
+        "print TAKES NO ARGUMENTS",
+        [](actor& ins_actor, vector<string> args){
             ins_actor.print();
         }
-    },
-
-    {
-        "noop", [](actor& ins_actor, vector<string> args) {
+    ),
+    create_instruction_producer(
+        "noop",
+        [](vector<string> args) {
+            return args.size() == 0;
+        },
+        "noop TAKES NO ARGUMENTS",
+        [](actor& ins_actor, vector<string> args){
         }
-    },
-
-    {
-        "sync", [](actor& ins_actor, vector<string> args) {
+    ),
+    create_instruction_producer(
+        "sync",
+        [](vector<string> args) {
+            auto size = args.size();
+            return size == 1 || size == 2;
+        },
+        "sync TAKES ONE OR TWO ARGUMENTS",
+        [](actor& ins_actor, vector<string> args){
             int num_to_sync = args.size() == 1 ? stoi(args[1]) : actors.size();
             pair<string, int> sync_key = {args[0], num_to_sync};
             auto map_iter = sync_map.find(sync_key);
@@ -84,8 +129,11 @@ map<string, instruction_fn> instruction_map {
                 map_iter->second.sync(&ins_actor);
             }
         }
-    },
+    )
 };
+
+void print_fail_message(actor* act, int line_number, string message) {
+}
 
 int main(int argc, char** argv) {
     if (argc < 2) {
@@ -108,9 +156,11 @@ int main(int argc, char** argv) {
         regex parser("(\\S+)");
         smatch results;
 
-        actor* curr_actor = new actor(i);
+        actor* curr_actor = new actor(i, argv[i]);
 
+        int line_number = 0;
         while (getline(input, line)) {
+            ++line_number;
             auto words_begin = sregex_iterator(line.begin(), line.end(), parser);
             auto words_end = sregex_iterator();
 
@@ -135,10 +185,10 @@ int main(int argc, char** argv) {
 
             // Pull out the instruction name
             string ins_name = words_begin->str();
-            function<void(actor&, vector<string>)> fn = instruction_map[ins_name];
+            instruction_producer producer = instruction_map[ins_name];
 
-            if (!fn) {
-                cout << ins_name << " IS NOT A VALID INSTRUCTION" << endl;
+            if (!producer) {
+                cout << ins_name << " IS NOT A VALID INSTRUCTION (" << curr_actor->get_name() << " line " << line_number << ")" << endl;
                 return 1;
             }
 
@@ -152,7 +202,13 @@ int main(int argc, char** argv) {
 
             // Register the instruction with the actor associated with
             // the file.
-            curr_actor->add_instruction(dir, fn, args, ins_name);
+            try {
+                instruction curr_ins = producer(*curr_actor, args, dir);
+                curr_actor->add_instruction(curr_ins);
+            } catch (loading_error e) {
+                cout << "FAILED WHILE LOADING INSTRUCTION (" << curr_actor->get_name() << " line " << line_number << "): " << e.get_message() << endl;
+                return 1;
+            }
         }
 
         // Keep track of the constructed actor.
