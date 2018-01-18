@@ -75,11 +75,11 @@ public:
         cout << "HERE: " << id << ": " << x << ", " << y << endl;
     }
 
-    map<string, int> getContext() {
+    map<string, int> get_context() {
         return context;
     }
 
-    void setContext(map<string, int> ctx) {
+    void set_context(map<string, int> ctx) {
         context = ctx;
     }
 

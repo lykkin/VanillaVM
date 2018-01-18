@@ -54,8 +54,8 @@ map<string, instruction_producer> instruction_map {
         },
         "drop TAKES NO ARGUMENTS",
         [](actor& ins_actor, vector<string> args){
-            memory[ins_actor.get_coords()] = ins_actor.getContext();
-            ins_actor.getContext().clear();
+            memory[ins_actor.get_coords()] = ins_actor.get_context();
+            ins_actor.get_context().clear();
         }
     ),
     create_instruction_producer(
@@ -65,7 +65,7 @@ map<string, instruction_producer> instruction_map {
         },
         "grab TAKES NO ARGUMENTS",
         [](actor& ins_actor, vector<string> args){
-            ins_actor.setContext(memory[ins_actor.get_coords()]);
+            ins_actor.set_context(memory[ins_actor.get_coords()]);
             memory[ins_actor.get_coords()]; 
         }
     ),
@@ -77,7 +77,7 @@ map<string, instruction_producer> instruction_map {
         "grab TAKES ONE ARGUMENT",
         [](actor& ins_actor, vector<string> args){
             auto context = memory[ins_actor.get_coords()];
-            ins_actor.getContext()[args[0]] = context[args[0]];
+            ins_actor.get_context()[args[0]] = context[args[0]];
         }
     ),
     create_instruction_producer(
@@ -88,7 +88,7 @@ map<string, instruction_producer> instruction_map {
         "write TAKES ONE ARGUMENT",
         [](actor& ins_actor, vector<string> args){
             auto context = memory[ins_actor.get_coords()];
-            context[args[0]] = ins_actor.getContext()[args[0]];
+            context[args[0]] = ins_actor.get_context()[args[0]];
         }
     ),
     create_instruction_producer(
