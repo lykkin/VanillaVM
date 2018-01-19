@@ -18,7 +18,7 @@ public:
         } else {
             task* old_task = pool.back();
             pool.pop_back();
-            new(&old_task) task(act);
+            new(old_task) task(act);
             return old_task;
         }
     }

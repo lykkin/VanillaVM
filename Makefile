@@ -1,5 +1,5 @@
 NAME=vanillavm
-CXXFLAGS=-std=c++11 -pthread -Wall -Werror -g -O0 -Wstrict-aliasing=2
+CXXFLAGS=-std=c++11 -Wall -Werror -g -O0 -Wstrict-aliasing=2
 OBJ_FILES=main.o
 CXX=g++
 

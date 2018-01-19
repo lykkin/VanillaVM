@@ -13,7 +13,7 @@ using namespace std;
 class actor {
     // id variables
     string name;
-    int id;
+    //int id;
 
     // memory vars
     int x;
@@ -30,7 +30,12 @@ class actor {
 public:
     actor(const actor& old) = delete;
 
-    actor(int id, string name, int x = 0, int y = 0) : name(name), id(id), x(x), y(y), curr_ins(0)
+    actor(int id, string name, int x = 0, int y = 0) :
+        name(name),
+        //id(id),
+        x(x),
+        y(y),
+        curr_ins(0)
     {}
 
     ~actor()
@@ -84,8 +89,8 @@ public:
         auto ins = instructions[curr_ins];
         x += ins.get_x_delta();
         y += ins.get_y_delta();
-        cout << "MOVING: " << id << ": " << ins.get_x_delta() << ", " << ins.get_y_delta() << endl;
-        cout << "HERE: " << id << ": " << x << ", " << y << endl;
+        //cout << "MOVING: " << id << ": " << ins.get_x_delta() << ", " << ins.get_y_delta() << endl;
+        //cout << "HERE: " << id << ": " << x << ", " << y << endl;
     }
 
     map<string, int> get_context() {
@@ -104,7 +109,7 @@ public:
 
     void print() {
         auto ins = instructions[curr_ins];
-        cout << "Actor " << id << ": <" << x << ", " << y << ">:" << endl;
+        //cout << "Actor " << id << ": <" << x << ", " << y << ">:" << endl;
         ins.print();
         cout << endl;
     }

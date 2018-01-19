@@ -250,20 +250,15 @@ int main(int argc, char** argv) {
                 // Wait for work
                 queue_lock.lock();
                 worker_cv.wait(queue_lock, [&](){
-                    cout << "WORKER: WAITING " << job_queue.size() << endl;
                     return !job_queue.empty();
                 });
-                cout << "WORKER: STARTING" << endl; 
                 // Take a job and unlock the queue
                 auto worker_tasks = job_queue.front(); 
                 job_queue.pop_front();
-                cout << "AFTER " << job_queue.size() << endl;
                 queue_lock.unlock();
 
                 for (task* curr_task : worker_tasks) {
-                    cout << "WORKER: EXECUTING " << curr_task->id << endl;
                     curr_task->execute();
-                    cout << "WORKER: EXECUTED " << curr_task->id << endl;
                 }
             }
         });
@@ -271,13 +266,14 @@ int main(int argc, char** argv) {
 
     unique_lock<mutex> queue_lock(job_queue_mutex, defer_lock);
     vector<task*> tick_tasks;
+    task_pool tp;
     while (true) {
         // Move the actors and mark their cells they land in.
         for (actor* curr_actor : actors) {
             if (!curr_actor->is_paused()) {
                 curr_actor->move();
                 auto cell_actors = &occupancy_graph[curr_actor->get_coords()];
-                task* new_task = new task(curr_actor);
+                task* new_task = tp.acquire(curr_actor);
                 tick_tasks.push_back(new_task);
                 cell_actors->push_back(new_task);
             }
@@ -287,21 +283,18 @@ int main(int argc, char** argv) {
         for (auto i = occupancy_graph.begin(); i != occupancy_graph.end(); ++i) {
             job_queue.push_back(i->second);
         }
-        cout << "MAIN: NOTIFY" << endl;
         worker_cv.notify_all();
         queue_lock.unlock();
 
         for (task* tick_task : tick_tasks) {
-            cout << "DONE " << tick_task->id << endl;
             tick_task->wait();
-            cout << "DELETE " << tick_task->id << endl;
-            delete tick_task;
+            if (tick_task->id >= 1000000) return 0;
+            tp.release(tick_task);
         }
 
         occupancy_graph.clear();
         tick_tasks.clear();
 
-        cout << "MAIN: END" << endl;
     }
 
     return 0;
