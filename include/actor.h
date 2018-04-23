@@ -30,7 +30,7 @@ class actor {
 public:
     actor(const actor& old) = delete;
 
-    actor(int id, string name, int x = 0, int y = 0) :
+    actor(int /*id*/, string name, int x = 0, int y = 0) :
         name(name),
         //id(id),
         x(x),

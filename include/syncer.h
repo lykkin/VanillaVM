@@ -12,7 +12,8 @@ public:
     syncer(int num_to_sync) : num_to_sync(num_to_sync) {}
 
     void sync(actor* syncing_actor) {
-        if (!--num_to_sync) {
+        --num_to_sync;
+        if (!num_to_sync) {
             for (actor* sync_actor : waiting_actors) {
                 sync_actor->unpause();
             }

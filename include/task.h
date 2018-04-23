@@ -30,7 +30,6 @@ public:
 
     void execute() {
         handle->execute();
-
         done = true;
         unique_lock<mutex> lock(_m);
         _cv.notify_one();

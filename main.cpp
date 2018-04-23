@@ -32,6 +32,7 @@ vector<actor*> actors;
  * }
  */
 
+pair<string, instruction_producer> create_instruction_producer(string name, instruction_verifier verifier, string fail_message, instruction_fn ins_fn);
 pair<string, instruction_producer> create_instruction_producer(string name, instruction_verifier verifier, string fail_message, instruction_fn ins_fn) {
     return {
         name,
@@ -49,65 +50,65 @@ pair<string, instruction_producer> create_instruction_producer(string name, inst
 map<string, instruction_producer> instruction_map {
     create_instruction_producer(
         "drop",
-        [](actor& ins_actor, vector<string> args) {
+        [](actor&, vector<string> args) {
             return args.size() == 0;
         },
         "TAKES NO ARGUMENTS",
-        [](actor& ins_actor, vector<string> args){
+        [](actor& ins_actor, vector<string>) {
             memory[ins_actor.get_coords()] = ins_actor.get_context();
             ins_actor.get_context().clear();
         }
     ),
     create_instruction_producer(
         "grab",
-        [](actor& ins_actor, vector<string> args) {
+        [](actor&, vector<string> args) {
             return args.size() == 0;
         },
         "TAKES NO ARGUMENTS",
-        [](actor& ins_actor, vector<string> args){
+        [](actor& ins_actor, vector<string>) {
             ins_actor.set_context(memory[ins_actor.get_coords()]);
             memory[ins_actor.get_coords()]; 
         }
     ),
     create_instruction_producer(
         "select",
-        [](actor& ins_actor, vector<string> args) {
+        [](actor&, vector<string> args) {
             return args.size() == 1;
         },
         "TAKES ONE ARGUMENT",
-        [](actor& ins_actor, vector<string> args){
+        [](actor& ins_actor, vector<string> args) {
             auto context = memory[ins_actor.get_coords()];
             ins_actor.get_context()[args[0]] = context[args[0]];
         }
     ),
     create_instruction_producer(
         "write",
-        [](actor& ins_actor, vector<string> args) {
+        [](actor&, vector<string> args) {
             return args.size() == 1;
         },
         "TAKES ONE ARGUMENT",
-        [](actor& ins_actor, vector<string> args){
+        [](actor& ins_actor, vector<string> args) {
             auto context = memory[ins_actor.get_coords()];
             context[args[0]] = ins_actor.get_context()[args[0]];
         }
     ),
     create_instruction_producer(
         "print",
-        [](actor& ins_actor, vector<string> args) {
+        [](actor&, vector<string> args) {
             return args.size() == 0;
         },
         "TAKES NO ARGUMENTS",
-        [](actor& ins_actor, vector<string> args){
+        [](actor& ins_actor, vector<string>) {
             ins_actor.print();
         }
     ),
     create_instruction_producer(
         "noop",
-        [](actor& ins_actor, vector<string> args) {
+        [](actor&, vector<string> args) {
             return args.size() == 0;
         },
         "TAKES NO ARGUMENTS",
-        [](actor& ins_actor, vector<string> args){
+        [](actor&, vector<string>) {
         }
     ),
     create_instruction_producer(
@@ -116,18 +117,18 @@ map<string, instruction_producer> instruction_map {
             return args.size() == 1 && ins_actor.has_label(args[0]);
         },
         "TAKES ONE ARGUMENT AND A LABEL DEFINED BEFORE THE JUMP STATEMENT",
-        [](actor& ins_actor, vector<string> args){
+        [](actor& ins_actor, vector<string> args) {
             ins_actor.jump(args[0]);
         }
     ),
     create_instruction_producer(
         "sync",
-        [](actor& ins_actor, vector<string> args) {
+        [](actor&, vector<string> args) {
             auto size = args.size();
             return size == 1 || size == 2;
         },
         "TAKES ONE OR TWO ARGUMENTS",
-        [](actor& ins_actor, vector<string> args){
+        [](actor& ins_actor, vector<string> args) {
             int num_to_sync = args.size() == 1 ? stoi(args[1]) : actors.size();
             pair<string, int> sync_key = {args[0], num_to_sync};
             auto map_iter = sync_map.find(sync_key);
@@ -142,8 +143,8 @@ map<string, instruction_producer> instruction_map {
     )
 };
 
-void print_fail_message(actor* act, int line_number, string message) {
-}
+//void print_fail_message(actor* act, int line_number, string message) {
+//}
 
 int main(int argc, char** argv) {
     if (argc < 2) {
@@ -215,8 +216,8 @@ int main(int argc, char** argv) {
             // Pull out the arguments
             ++words_begin;
             vector<string> args;
-            for (sregex_iterator i = words_begin; i != words_end; ++i) {
-                args.push_back(i->str());
+            for (sregex_iterator it = words_begin; it != words_end; ++it) {
+                args.push_back(it->str());
             }
 
             // Register the instruction with the actor associated with
@@ -258,6 +259,7 @@ int main(int argc, char** argv) {
                 queue_lock.unlock();
 
                 for (task* curr_task : worker_tasks) {
+                    cout << "EXECUTING: " << curr_task->id << endl;
                     curr_task->execute();
                 }
             }
@@ -267,10 +269,12 @@ int main(int argc, char** argv) {
     unique_lock<mutex> queue_lock(job_queue_mutex, defer_lock);
     vector<task*> tick_tasks;
     task_pool tp;
+    bool deadlocked = true;
     while (true) {
         // Move the actors and mark their cells they land in.
         for (actor* curr_actor : actors) {
             if (!curr_actor->is_paused()) {
+                deadlocked = false;
                 curr_actor->move();
                 auto cell_actors = &occupancy_graph[curr_actor->get_coords()];
                 task* new_task = tp.acquire(curr_actor);
@@ -278,6 +282,13 @@ int main(int argc, char** argv) {
                 cell_actors->push_back(new_task);
             }
         }
+        
+        if (deadlocked) {
+            cout << "ALL YOUR ACTORS ARE SYNCED ON DIFFERENT KEYS" << endl;
+            return 1;
+        }
+
+        deadlocked = false;
 
         queue_lock.lock();
         for (auto i = occupancy_graph.begin(); i != occupancy_graph.end(); ++i) {
