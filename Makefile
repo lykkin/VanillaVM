@@ -1,5 +1,5 @@
 NAME=vanillavm
-CXXFLAGS=-std=c++11 -Wall -Werror -g -O3 -Wextra -Wstrict-aliasing=2 \
+CXXFLAGS=-std=c++11 -Wall -Werror -g -O0 -Wextra -Wstrict-aliasing=2 \
 		 -Wformat=2 -Wno-format-nonliteral -Wshadow -Wpointer-arith -Wcast-qual \
 		 -Wmissing-prototypes -Wno-missing-braces -pedantic-errors -pthread
 OBJ_FILES=main.o
@@ -19,5 +19,5 @@ clean:
 %.o: ./%.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $<
 
-test:
+test: all
 	./vanillavm test/test.am test/test.am
