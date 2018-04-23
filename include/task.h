@@ -7,13 +7,13 @@
 
 using namespace std;
 class task {
-    static int id_counter;
+    static unsigned long long int id_counter;
     actor* handle;
     mutex _m;
     bool done = false;
     condition_variable _cv;
 public:
-    int id;
+    unsigned long long int id;
 
     task(actor* act) : handle(act), id(id_counter++) {
     }
@@ -29,9 +29,9 @@ public:
     }
 
     void execute() {
+        unique_lock<mutex> lock(_m);
         handle->execute();
         done = true;
-        unique_lock<mutex> lock(_m);
         _cv.notify_one();
     }
 };

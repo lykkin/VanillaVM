@@ -17,7 +17,7 @@
 #include "include/instruction.h"
 #include "include/syncer.h"
 
-int task::id_counter = 0;
+unsigned long long int task::id_counter = 0;
 
 using namespace std;
 
@@ -299,7 +299,6 @@ int main(int argc, char** argv) {
 
         for (task* tick_task : tick_tasks) {
             tick_task->wait();
-            if (tick_task->id >= 1000000) return 0;
             tp.release(tick_task);
         }
 
