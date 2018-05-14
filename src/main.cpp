@@ -10,14 +10,12 @@
 #include <fstream>
 #include <thread>
 
-#include "include/actor.h"
-#include "include/error.h"
-#include "include/task.h"
-#include "include/task_pool.h"
-#include "include/instruction.h"
-#include "include/syncer.h"
-
-unsigned long long int task::id_counter = 0;
+#include "actor.h"
+#include "error.h"
+#include "task.h"
+#include "task_pool.h"
+#include "instruction.h"
+#include "syncer.h"
 
 using namespace std;
 

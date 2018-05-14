@@ -3,21 +3,16 @@
 #include <string>
 
 class vanilla_error {
-    string message;
+    std::string message;
 public:
-    vanilla_error(string message) : message(message) {}
+    vanilla_error(std::string message) : message(message) {}
 
-    string get_message() {
+    std::string get_message() {
         return message;
     }
 };
 
-class loading_error {
-    string message;
+class loading_error : public vanilla_error {
 public:
-    loading_error(string message) : message(message) {}
-
-    string get_message() {
-        return message;
-    }
+    loading_error(std::string message) : vanilla_error(message) {}
 };

@@ -3,16 +3,12 @@
 #include <map>
 #include <vector>
 #include <string>
-#include <iostream>
 
 #include "instruction.h"
-#include "typedefs.h"
-
-using namespace std;
 
 class actor {
     // id variables
-    string name;
+    std::string name;
     //int id;
 
     // memory vars
@@ -21,16 +17,16 @@ class actor {
 
     bool paused = false;
 
-    map<string, int> context;
-    map<string, int> labels;
+    std::map<std::string, int> context;
+    std::map<std::string, int> labels;
 
     // instruction vars
-    vector<instruction> instructions;
+    std::vector<instruction> instructions;
     int curr_ins;
 public:
     actor(const actor& old) = delete;
 
-    actor(int /*id*/, string name, int x = 0, int y = 0) :
+    actor(int /*id*/, std::string name, int x = 0, int y = 0) :
         name(name),
         //id(id),
         x(x),
@@ -41,76 +37,27 @@ public:
     ~actor()
     {}
 
-    pair<int, int> get_coords() {
-        return {x, y};
-    }
+    std::pair<int, int> get_coords();
+    std::string get_name();
 
-    string get_name() {
-        return name;
-    }
+    bool is_paused();
+    void pause();
+    void unpause();
 
-    bool is_paused() {
-        return paused;
-    }
+    int get_current_index();
+    instruction get_current_instruction();
+    void add_instruction(instruction ins);
 
-    void pause() {
-        paused = true;
-    }
+    void label_last_instruction(std::string label);
+    void jump(std::string label);
+    bool has_label(std::string label);
 
-    void unpause() {
-        paused = false;
-    }
+    void move();
 
-    int get_current_index() {
-        return curr_ins;
-    }
+    std::map<std::string, int> get_context();
+    void set_context(std::map<std::string, int> ctx);
 
-    instruction get_current_instruction() {
-        return instructions[curr_ins];
-    }
+    void execute();
 
-    void add_instruction(instruction ins) {
-        instructions.push_back(ins);
-    }
-
-    void label_last_instruction(string label) {
-        labels[label] = instructions.size() - 1;
-    }
-
-    void jump(string label) {
-        curr_ins = labels[label];
-    }
-
-    bool has_label(string label) {
-        return labels.find(label) != labels.end();
-    }
-
-    void move() {
-        auto ins = instructions[curr_ins];
-        x += ins.get_x_delta();
-        y += ins.get_y_delta();
-        //cout << "MOVING: " << id << ": " << ins.get_x_delta() << ", " << ins.get_y_delta() << endl;
-        //cout << "HERE: " << id << ": " << x << ", " << y << endl;
-    }
-
-    map<string, int> get_context() {
-        return context;
-    }
-
-    void set_context(map<string, int> ctx) {
-        context = ctx;
-    }
-
-    void execute() {
-        auto ins = instructions[curr_ins++];
-        curr_ins %= instructions.size();
-        ins.execute(*this);
-    }
-
-    void print() {
-        auto ins = instructions[curr_ins];
-        //cout << "Actor " << id << ": <" << x << ", " << y << ">:" << endl;
-        ins.print();
-        cout << endl;
-    }
+    void print();
 };
