@@ -7,6 +7,7 @@ task* task_pool::acquire(actor* act) {
     } else {
         task* old_task = pool.back();
         pool.pop_back();
+        old_task->~task();
         new(old_task) task(act);
         return old_task;
     }

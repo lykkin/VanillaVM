@@ -7,12 +7,6 @@ FOR SURE:
 
 abstract executor into its own class with the option for different threaded models
 
-break all the functionality for the different classes into their own cpp files to cut down on compile time
-
-figure out why the task pool is smashing the stack
-
-hunt down the weird task reusing bug
-
 WRITE TESTS
 
 break the parser out into its own file
